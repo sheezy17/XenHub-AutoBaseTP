@@ -1,55 +1,48 @@
 --[[
     XENHUB V5 | AUTO BASE ROUTE
-    Roblox Studio - LocalScript
+    TeaHack Edition
 
-    BENÖTIGTE STRUKTUR:
-    workspace
-      Bases
-        BaseModel
-          Entrance (Part)
-          Brainrots (Folder)
-            PetModel (Attribute: Value oder Income)
+    FEATURES:
+    - Automatic Base Discovery
+    - Best Pet Detection
+    - Teleport To Base
+    - Broom Slot 3
+    - Cloner Slot 6
+    - Automatic Flight
+    - Draggable GUI
+    - Error Handling
 
-    Gear:
-      Broom / Besen
-      Cloner
-
-    Optional:
-      Tool Attribute HotbarSlot = 3 oder 6
-
-    Funktionen:
-      - Richest Pet Detection
-      - Automatic Base Selection
-      - Broom Equip
-      - Cloner Activation
-      - Automatic Flight
-      - Draggable GUI
-      - Status Display
-
-    Die Bewegung wird lokal ausgeführt.
-    Server-Regeln bleiben maßgeblich.
+    Intended for Roblox Studio experiences.
 ]]
+
+-- SERVICES
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
-local CONFIG = {
+-- SETTINGS
+
+local Settings = {
     BroomSlot = 3,
     ClonerSlot = 6,
 
     FlySpeed = 90,
-    EntranceOffset = 6,
-    TargetOffset = 4,
+    EntranceDistance = 6,
+    PetHeight = 4,
 
-    BroomNames = {"broom", "besen"},
-    ClonerNames = {"cloner", "clone"},
+    AutoEquip = true,
+    AutoClone = true,
+    AutoFly = true,
 
     Running = false
 }
 
-local rarity = {
+-- RARITY DATABASE
+
+local Rarity = {
     Common = 1,
     Uncommon = 2,
     Rare = 3,
@@ -61,61 +54,138 @@ local rarity = {
     OG = 9
 }
 
--- GUI
+-- GUI CLEANUP
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+local old = playerGui:FindFirstChild("XenHubV5Route")
+
+if old then
+    old:Destroy()
+end
+
+-- GUI CREATION
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "XenHubAutoRoute"
+gui.Name = "XenHubV5Route"
 gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.Parent = playerGui
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(260, 160)
-frame.Position = UDim2.new(0.5, -130, 0.5, -80)
-frame.BackgroundColor3 = Color3.fromRGB(17, 18, 24)
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
-frame.Parent = gui
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(280, 205)
+main.Position = UDim2.new(0.5, -140, 0.4, 0)
+main.BackgroundColor3 = Color3.fromRGB(16, 17, 22)
+main.BorderSizePixel = 0
+main.Active = true
+main.Parent = gui
 
-Instance.new("UICorner", frame).CornerRadius =
-    UDim.new(0, 12)
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = main
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(55, 55, 65)
+stroke.Thickness = 1
+stroke.Parent = main
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
+title.Size = UDim2.new(1, 0, 0, 42)
 title.BackgroundTransparency = 1
 title.Text = "XENHUB V5 | AUTO ROUTE"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 15
-title.Parent = frame
+title.Parent = main
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(1, -20, 0, 44)
-button.Position = UDim2.fromOffset(10, 48)
-button.BackgroundColor3 = Color3.fromRGB(30, 140, 80)
-button.Text = "START AUTO ROUTE"
-button.TextColor3 = Color3.new(1, 1, 1)
-button.Font = Enum.Font.GothamBold
-button.TextSize = 14
-button.Parent = frame
+local start = Instance.new("TextButton")
+start.Size = UDim2.new(1, -20, 0, 46)
+start.Position = UDim2.fromOffset(10, 48)
+start.BackgroundColor3 = Color3.fromRGB(25, 150, 85)
+start.Text = "START AUTO ROUTE"
+start.TextColor3 = Color3.new(1, 1, 1)
+start.Font = Enum.Font.GothamBold
+start.TextSize = 14
+start.Parent = main
 
-Instance.new("UICorner", button).CornerRadius =
+Instance.new("UICorner", start).CornerRadius =
     UDim.new(0, 8)
 
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, -20, 0, 48)
-status.Position = UDim2.fromOffset(10, 101)
+status.Size = UDim2.new(1, -20, 0, 62)
+status.Position = UDim2.fromOffset(10, 106)
 status.BackgroundTransparency = 1
-status.Text = "Ready"
-status.TextColor3 = Color3.fromRGB(190, 190, 200)
+status.Text = "Status: Ready"
+status.TextColor3 = Color3.fromRGB(195, 195, 205)
 status.Font = Enum.Font.Gotham
 status.TextSize = 12
 status.TextWrapped = true
-status.Parent = frame
+status.Parent = main
 
-local function setStatus(message)
-    status.Text = message
-    print("[XenHub]", message)
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 22)
+footer.Position = UDim2.new(0, 0, 1, -25)
+footer.BackgroundTransparency = 1
+footer.Text = "BROOM: 3  |  CLONER: 6"
+footer.TextColor3 = Color3.fromRGB(130, 130, 145)
+footer.Font = Enum.Font.Gotham
+footer.TextSize = 10
+footer.Parent = main
+
+-- DRAG SUPPORT
+
+local dragging = false
+local dragInput
+local dragStart
+local startPosition
+
+title.Active = true
+
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState ==
+                Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+title.InputChanged:Connect(function(input)
+    if input.UserInputType ==
+        Enum.UserInputType.MouseMovement
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+
+        local delta = input.Position - dragStart
+
+        main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- STATUS
+
+local function updateStatus(message)
+    status.Text = "Status: " .. message
+    print("[XENHUB V5]", message)
 end
 
 -- CHARACTER
@@ -124,69 +194,157 @@ local function getCharacter()
     local character = player.Character
         or player.CharacterAdded:Wait()
 
-    local humanoid = character:WaitForChild("Humanoid")
-    local root = character:WaitForChild("HumanoidRootPart")
+    local humanoid =
+        character:WaitForChild("Humanoid")
+
+    local root =
+        character:WaitForChild("HumanoidRootPart")
 
     return character, humanoid, root
 end
 
--- PET VALUES
+-- AUTOMATIC BASE DISCOVERY
 
-local function getPetValue(pet)
-    for _, attribute in ipairs({
-        "Value",
-        "Income",
-        "MoneyPerSecond",
-        "Price"
-    }) do
-        local value = pet:GetAttribute(attribute)
+local BaseFolderNames = {
+    "Bases",
+    "Base",
+    "Plots",
+    "PlayerBases",
+    "Tycoons",
+    "PlayerPlots",
+    "Land"
+}
 
-        if typeof(value) == "number" then
-            return value
+local PetFolderNames = {
+    "Brainrots",
+    "Pets",
+    "Units",
+    "Characters"
+}
+
+local function findNamedChild(parent, names)
+    for _, name in ipairs(names) do
+        local object = parent:FindFirstChild(name)
+
+        if object then
+            return object
         end
     end
 
-    local rank = pet:GetAttribute("Rarity")
+    return nil
+end
 
-    return rarity[rank] or 0
+local function findBaseFolder()
+    -- Search direct workspace children first
+
+    local folder = findNamedChild(
+        workspace,
+        BaseFolderNames
+    )
+
+    if folder then
+        return folder
+    end
+
+    -- Search nested containers
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Folder") or obj:IsA("Model") then
+
+            for _, name in ipairs(BaseFolderNames) do
+                if obj.Name:lower() == name:lower() then
+                    return obj
+                end
+            end
+
+        end
+    end
+
+    return nil
+end
+
+-- PET DETECTION
+
+local function getPetContainer(base)
+    return findNamedChild(base, PetFolderNames)
 end
 
 local function getPetPart(pet)
-    return pet.PrimaryPart
-        or pet:FindFirstChildWhichIsA("BasePart", true)
-end
-
-local function findBestPet()
-    local bases = workspace:FindFirstChild("Bases")
-
-    if not bases then
-        return nil, nil, "Bases folder missing"
+    if pet:IsA("BasePart") then
+        return pet
     end
 
-    local bestBase
-    local bestPet
+    if pet:IsA("Model") then
+        return pet.PrimaryPart
+            or pet:FindFirstChildWhichIsA(
+                "BasePart",
+                true
+            )
+    end
+
+    return nil
+end
+
+local function getPetValue(pet)
+    local attributes = {
+        "Value",
+        "Income",
+        "MoneyPerSecond",
+        "Price",
+        "Worth"
+    }
+
+    for _, attribute in ipairs(attributes) do
+        local value = pet:GetAttribute(attribute)
+
+        if typeof(value) == "number" then
+            return value, true
+        end
+    end
+
+    local rarity = pet:GetAttribute("Rarity")
+
+    return Rarity[rarity] or 0, false
+end
+
+-- BEST PET SEARCH
+
+local function findBestPet()
+    local bases = findBaseFolder()
+
+    if not bases then
+        return nil, nil, "Base folder not found"
+    end
+
+    local bestBase = nil
+    local bestPet = nil
+
     local bestValue = -math.huge
+    local bestHasMoney = false
 
     for _, base in ipairs(bases:GetChildren()) do
-        if not base:IsA("Model") then
+
+        if not base:IsA("Model")
+            and not base:IsA("Folder") then
             continue
         end
 
-        local ownerId = base:GetAttribute("OwnerUserId")
+        local owner = base:GetAttribute("OwnerUserId")
 
-        if ownerId == player.UserId then
+        if owner == player.UserId then
             continue
         end
 
-        local pets = base:FindFirstChild("Brainrots")
-            or base:FindFirstChild("Pets")
+        local petFolder = getPetContainer(base)
 
-        if not pets then
+        if not petFolder then
             continue
         end
 
-        for _, pet in ipairs(pets:GetDescendants()) do
-            if not pet:IsA("Model") then
+        for _, pet in ipairs(petFolder:GetChildren()) do
+
+            if not pet:IsA("Model")
+                and not pet:IsA("BasePart") then
                 continue
             end
 
@@ -194,30 +352,93 @@ local function findBestPet()
                 continue
             end
 
-            local value = getPetValue(pet)
+            local value, hasMoney = getPetValue(pet)
 
-            if value > bestValue then
+            local better = false
+
+            if hasMoney and not bestHasMoney then
+                better = true
+
+            elseif hasMoney == bestHasMoney
+                and value > bestValue then
+                better = true
+            end
+
+            if better then
                 bestValue = value
+                bestHasMoney = hasMoney
+
                 bestPet = pet
                 bestBase = base
             end
+
         end
     end
 
     if not bestPet then
-        return nil, nil, "No pets found"
+        return nil, nil, "No compatible pets found"
     end
 
     return bestBase, bestPet
 end
 
--- TOOL SELECTION
+-- ENTRANCE DISCOVERY
 
-local function findTool(slot, names)
+local function findEntrance(base)
+    local names = {
+        "Entrance",
+        "Gate",
+        "Door",
+        "Spawn",
+        "BaseSpawn"
+    }
+
+    for _, name in ipairs(names) do
+        local part = base:FindFirstChild(name, true)
+
+        if part and part:IsA("BasePart") then
+            return part
+        end
+    end
+
+    return nil
+end
+
+-- TELEPORT
+
+local function teleportToBase(base)
+    local character = getCharacter()
+
+    local entrance = findEntrance(base)
+
+    if not entrance then
+        return false, "Entrance not found"
+    end
+
+    local target =
+        entrance.CFrame * CFrame.new(
+            0,
+            3,
+            -Settings.EntranceDistance
+        )
+
+    character:PivotTo(target)
+
+    return true
+end
+
+-- GEAR SYSTEM
+
+local function findTool(slot, keywords)
     local character = player.Character
     local backpack = player:FindFirstChildOfClass("Backpack")
 
-    local containers = {backpack, character}
+    local containers = {
+        backpack,
+        character
+    }
+
+    -- Try explicit hotbar attributes
 
     for _, container in ipairs(containers) do
         if not container then
@@ -225,12 +446,17 @@ local function findTool(slot, names)
         end
 
         for _, tool in ipairs(container:GetChildren()) do
-            if tool:IsA("Tool")
-                and tool:GetAttribute("HotbarSlot") == slot then
-                return tool
+            if tool:IsA("Tool") then
+
+                if tool:GetAttribute("HotbarSlot") == slot then
+                    return tool
+                end
+
             end
         end
     end
+
+    -- Fallback: match tool names
 
     for _, container in ipairs(containers) do
         if not container then
@@ -242,10 +468,10 @@ local function findTool(slot, names)
                 continue
             end
 
-            local toolName = tool.Name:lower()
+            local name = tool.Name:lower()
 
-            for _, name in ipairs(names) do
-                if toolName:find(name, 1, true) then
+            for _, keyword in ipairs(keywords) do
+                if name:find(keyword, 1, true) then
                     return tool
                 end
             end
@@ -257,6 +483,7 @@ end
 
 local function equipTool(slot, names)
     local _, humanoid = getCharacter()
+
     local tool = findTool(slot, names)
 
     if not tool then
@@ -268,40 +495,43 @@ local function equipTool(slot, names)
     return tool
 end
 
--- BASE ENTRANCE
+-- BROOM
 
-local function getEntrance(base)
-    local entrance = base:FindFirstChild("Entrance", true)
-        or base:FindFirstChild("Gate", true)
-
-    if entrance and entrance:IsA("BasePart") then
-        return entrance
-    end
-
-    return nil
+local function equipBroom()
+    return equipTool(
+        Settings.BroomSlot,
+        {
+            "broom",
+            "besen",
+            "flying broom"
+        }
+    )
 end
 
-local function teleportToEntrance(base)
-    local character = getCharacter()
-    local entrance = getEntrance(base)
+-- CLONER
 
-    if not entrance then
+local function activateCloner()
+    local cloner = equipTool(
+        Settings.ClonerSlot,
+        {
+            "cloner",
+            "clone",
+            "body clone"
+        }
+    )
+
+    if not cloner then
         return false
     end
 
-    local destination =
-        entrance.CFrame * CFrame.new(
-            0,
-            3,
-            -CONFIG.EntranceOffset
-        )
+    task.wait(0.1)
 
-    character:PivotTo(destination)
+    cloner:Activate()
 
     return true
 end
 
--- FLIGHT
+-- FLIGHT SYSTEM
 
 local function flyToPet(pet)
     local _, humanoid, root = getCharacter()
@@ -315,7 +545,7 @@ local function flyToPet(pet)
     local destination =
         part.CFrame * CFrame.new(
             0,
-            CONFIG.TargetOffset,
+            Settings.PetHeight,
             0
         )
 
@@ -324,11 +554,11 @@ local function flyToPet(pet)
 
     local duration = math.max(
         0.1,
-        distance / CONFIG.FlySpeed
+        distance / Settings.FlySpeed
     )
 
-    local previousAnchored = root.Anchored
-    local previousAutoRotate = humanoid.AutoRotate
+    local oldAnchored = root.Anchored
+    local oldRotate = humanoid.AutoRotate
 
     root.Anchored = true
     humanoid.AutoRotate = false
@@ -346,109 +576,122 @@ local function flyToPet(pet)
 
     tween:Play()
 
-    local result = tween.Completed:Wait()
+    local playbackState = tween.Completed:Wait()
 
-    root.Anchored = previousAnchored
-    humanoid.AutoRotate = previousAutoRotate
+    root.Anchored = oldAnchored
+    humanoid.AutoRotate = oldRotate
 
-    return result == Enum.PlaybackState.Completed
+    return playbackState ==
+        Enum.PlaybackState.Completed
 end
 
 -- MAIN ROUTE
 
-local function executeRoute()
-    if CONFIG.Running then
+local function startRoute()
+    if Settings.Running then
         return
     end
 
-    CONFIG.Running = true
-    button.Text = "RUNNING..."
+    Settings.Running = true
+    start.Text = "RUNNING..."
 
-    local ok, err = pcall(function()
-        setStatus("Finding richest pet...")
+    local success, errorMessage = pcall(function()
+
+        -- STEP 1: FIND PET
+
+        updateStatus("Scanning bases...")
 
         local base, pet, reason = findBestPet()
 
         if not base or not pet then
-            error(reason or "No target found")
+            error(reason or "Target not found")
         end
 
-        setStatus("Target: " .. pet.Name)
+        updateStatus("Best pet: " .. pet.Name)
 
-        -- 1. Teleport
-        setStatus("Teleporting to base...")
+        -- STEP 2: TELEPORT
 
-        if not teleportToEntrance(base) then
-            error("Base entrance missing")
-        end
+        updateStatus("Teleporting to target base...")
 
-        task.wait(0.2)
+        local teleported, teleportError =
+            teleportToBase(base)
 
-        -- 2. Broom in Slot 3
-        setStatus("Equipping broom...")
-
-        local broom = equipTool(
-            CONFIG.BroomSlot,
-            CONFIG.BroomNames
-        )
-
-        if not broom then
-            error("Broom not found")
+        if not teleported then
+            error(teleportError)
         end
 
         task.wait(0.2)
 
-        -- 3. Cloner in Slot 6
-        setStatus("Activating cloner...")
+        -- STEP 3: BROOM
 
-        local cloner = equipTool(
-            CONFIG.ClonerSlot,
-            CONFIG.ClonerNames
-        )
+        if Settings.AutoEquip then
+            updateStatus("Equipping broom (Slot 3)...")
 
-        if not cloner then
-            error("Cloner not found")
+            local broom = equipBroom()
+
+            if not broom then
+                error("Broom not found")
+            end
+
+            task.wait(0.15)
         end
 
-        task.wait(0.1)
+        -- STEP 4: CLONER
 
-        cloner:Activate()
+        if Settings.AutoClone then
+            updateStatus("Activating cloner (Slot 6)...")
 
-        task.wait(0.3)
+            local activated = activateCloner()
 
-        -- 4. Re-equip broom
-        setStatus("Equipping broom for flight...")
+            if not activated then
+                error("Cloner not found")
+            end
 
-        broom = equipTool(
-            CONFIG.BroomSlot,
-            CONFIG.BroomNames
-        )
-
-        if not broom then
-            error("Broom unavailable")
+            task.wait(0.3)
         end
 
-        -- 5. Fly
-        setStatus("Flying to " .. pet.Name .. "...")
+        -- STEP 5: BROOM AGAIN
 
-        if not flyToPet(pet) then
-            error("Flight interrupted")
+        if Settings.AutoFly then
+            updateStatus("Preparing flight...")
+
+            local broom = equipBroom()
+
+            if not broom then
+                error("Broom unavailable")
+            end
+
+            task.wait(0.1)
+
+            -- STEP 6: FLY TO PET
+
+            updateStatus("Flying to " .. pet.Name)
+
+            local arrived = flyToPet(pet)
+
+            if not arrived then
+                error("Flight interrupted")
+            end
         end
 
-        setStatus("Arrived at " .. pet.Name)
+        updateStatus("Route completed: " .. pet.Name)
     end)
 
-    if not ok then
-        setStatus("Error: " .. tostring(err))
-        warn("[XenHub]", err)
+    if not success then
+        updateStatus("Error: " .. tostring(errorMessage))
+        warn("[XENHUB V5]", errorMessage)
     end
 
-    CONFIG.Running = false
-    button.Text = "START AUTO ROUTE"
+    Settings.Running = false
+    start.Text = "START AUTO ROUTE"
 end
 
-button.MouseButton1Click:Connect(function()
-    task.spawn(executeRoute)
+-- BUTTON
+
+start.MouseButton1Click:Connect(function()
+    task.spawn(startRoute)
 end)
 
-print("XenHub V5 Auto Route Loaded")
+updateStatus("Ready - Press START")
+
+print("XENHUB V5 AUTO ROUTE LOADED")
